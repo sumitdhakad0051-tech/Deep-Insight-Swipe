@@ -1,0 +1,25 @@
+{
+  "summary": "Verified the new floating ActionBar on Hot Now cards on 428x900 mobile viewport. All 5 icons (Save/Ask/Listen/Regen/Mic) are visible upfront on card 0 with no expander — data-testids hot-save-btn-0, hot-ask-btn-0, hot-listen-btn-0, hot-regen-btn-0, hot-mic-btn-0 all present and clickable. Save triggers POST /api/insights/save (200), shows 'Saved' sonner toast, and flips button to filled/white state. Ask opens the Back Story portal modal with an EMPTY input (not seeded), the 4-section backstory streams, Close button closes the modal and card 0 remains fully intact (headline identical before/after). Listen click did not crash and second click stopped audio. Regenerate rotated the deck within ~2s (headline changed from 'RBI just injected $23 billion' to '1,072 landed in just June'). Mic click (with permission granted) started recording without crashing the card. None of the action clicks navigated the router away from '/'. Backend health: 4/4 pytest cases pass — /api/insights/save (200 + persistence verified), /api/insights/tts (audio/mpeg, 500+ bytes), /api/insights/stt endpoint reachable, /api/insights/hot/stream?fresh=1 emits card event within 3s.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_actionbar_endpoints.py",
+    "/app/test_reports/pytest/actionbar_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "HotFeed.jsx has grown to ~792 lines with three components (HotFeed, HotCard, BackStorySheet) plus helpers — consider splitting BackStorySheet and HotIconBtn into separate files (>700 line guideline).",
+    "handleMic in HotCard uses direct fetch to `${process.env.REACT_APP_BACKEND_URL}/api/insights/stt` instead of the transcribeAudio helper already exported in /app/frontend/src/lib/api.js — DRY duplication that should be consolidated.",
+    "handleListen creates an Audio object with URL.createObjectURL but never calls URL.revokeObjectURL — minor memory leak per Listen invocation. Recommend revoking on onended and on Stop.",
+    "handleListen sets audioRef.current = audio synchronously but audio.play() returns a Promise that is not awaited/caught — a stall (e.g., autoplay policy) may leave `listening=true` without recovery. Add try/catch on play() and reset listening state.",
+    "The floating ActionBar overlays the last ~56px of card body when body content is long. The mask-image gradient at the bottom fades text out, but ensure this is intentional; the pb-14 on the source row prevents source overlap, but tall text bodies may still be visually clipped by the ActionBar itself."
+  ],
+  "updated_files": ["/app/backend/tests/test_actionbar_endpoints.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "One TEST_ save/insight was created and deleted in the pytest teardown flow. One card was also saved via the UI Save button click that persists (topic 'The Constraint Was on Mint Street's ...') — main agent may wish to clean saved_insights collection in a future iteration.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "ActionBar tests: use context.grant_permissions(['microphone']) BEFORE navigating so hot-mic-btn-0 does not throw the permission-denied toast. Toast selector: [data-sonner-toast]. The Ask (chat) modal is a portal at document.body — always look up hot-backstory-modal-0 outside the <article>. Backend regenerate deck comes from db.hot_now_cards; if the newsroom is empty the SSE will fall through to the slow LLM fan-out path, so run /api/insights/hot/stream?fresh=1 with a 15s timeout to be safe.",
+  "test_credentials": "none",
+  "rca of the issue": "N/A — no new bug found in this iteration; all requested ActionBar behaviour is functioning end-to-end."
+}

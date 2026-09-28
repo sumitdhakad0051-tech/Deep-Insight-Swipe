@@ -1,0 +1,29 @@
+{
+  "summary": "Verified Hot Now UI/UX changes: persona & category pills removed from Hot Now cards, Back Story button + bottom-sheet modal work correctly, Regenerate feels instant (~90ms to first card), TappableText removed from Feed insight body. Backend SSE endpoint /api/insights/hot/stream serves newsroom cards with topic/headline/text populated. All 10 requested checks passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/insights/hot/stream?fresh=false", "issue": "Query param `fresh` is typed as int on the backend, so ?fresh=false returns 422. Frontend never sends 'false' (it sends '1' or omits), so no user impact, but the endpoint is inconsistent with common bool query semantics."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional cleanup: remove unused `TappableText` import in /app/frontend/src/pages/Feed.jsx (line 37) and the now-dead handleWordTap / openExplainForPhrase paths and onWordTap prop plumbing — single-tap 'go deeper' is gone from UI but dead code remains.",
+    "Optional: accept `fresh=true|false|1|0` on /api/insights/hot/stream instead of strict int to be robust."
+  ],
+  "critical_code_review_comments": [
+    "Feed.jsx no longer wraps insight body in <TappableText>, but the import and the handleWordTap/openExplainForPhrase code (~lines 285-405) are dead code. Should be removed for clarity and to prevent regression.",
+    "HotFeed.jsx still defines CATEGORY_ACCENT constant that is no longer used after category pill removal — safe to delete."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Hot Now landing page (428x900 mobile) verified: no persona pill, no category pill, Back Story button opens bottom-sheet modal with topic/headline/insight/source/close, modal closes correctly, regenerate returns first card in ~0.09s from newsroom cache with shuffled deck order. SSE endpoint requires ?fresh=1 (int) not fresh=true. Newsroom cache had 13 cards. Feed.jsx line 1152 uses plain {fittedText} — TappableText no longer wraps the insight body. Dead imports/functions remain but do not affect behavior."
+}

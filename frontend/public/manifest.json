@@ -1,0 +1,25 @@
+{
+  "name": "Insight Swipe",
+  "short_name": "Insight Swipe",
+  "description": "TikTok for deep research. Swipe through AI-generated, research-backed insights on any topic.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0C0C0D",
+  "theme_color": "#0C0C0D",
+  "categories": ["education", "news", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}

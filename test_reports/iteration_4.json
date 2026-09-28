@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 4 verified all 4 requested changes end-to-end on 428x900 mobile: (1) Back Story pill is visible on card 0 face on the RIGHT (x=291) with Source pill on LEFT (x=45); (2) Single-tap on card body opens fullscreen scrollable ExpandedCardSheet (hot-expanded-0) via document.body portal, showing topic subtitle + headline + full unclipped text + source link + Close button — Close dismisses cleanly and the underlying card remains fully intact; (3) Double-tap correctly navigates to /directions (rabbit-hole) and the single-tap timer does not fire; (4) Back Story pill opens the portal BackStorySheet (hot-backstory-modal-0), streams the 4-section explainer, closes cleanly and card is intact; (5) hot-regen-btn-0 swapped ONLY card 0 within ~1.5s ('Delhi cut one clearance, not the queue' → 'India's pharma bottleneck moved, not vanished') while card 1 remained unchanged; (6) hot-mic-btn-0 opens the shared VoiceRecorder overlay used by Feed (data-testid=voice-recorder with voice-close/voice-stop/voice-timer); (7) Backend POST /api/insights/hot/regenerate-single returns a fresh non-empty headline different from the input (with and without steer), and /api/insights/hot/stream still emits card events under the new Tavily key. 3/3 pytest backend tests pass in 5s.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Mic → VoiceRecorder overlay close",
+        "issue": "VoiceRecorder is rendered as a JSX child of <article data-testid=hot-card-0> (no portal). Its <button data-testid=voice-close> onClick does not stopPropagation, so the close click bubbles up to the article's onClick=handleCardClick which schedules the 260ms single-tap timer — the ExpandedCardSheet unexpectedly opens right after the user dismisses the recorder. Same leak likely on voice-stop and backdrop taps. Fix options: (a) portal VoiceRecorder to document.body, or (b) wrap the VoiceRecorder root motion.div with onClick={(e)=>e.stopPropagation()}, or (c) call e.stopPropagation() inside onClose/onStop handlers.",
+        "affected_selectors": ["[data-testid=voice-close]", "[data-testid=voice-recorder]", "[data-testid=hot-expanded-0]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration4_regen_single.py",
+    "/app/test_reports/pytest/iteration4_results.xml"
+  ],
+  "action_items": [
+    "Stop click-bubbling leak from VoiceRecorder → hot-card article that spuriously opens ExpandedCardSheet after mic-close. Preferred fix: render VoiceRecorder via ReactDOM.createPortal(document.body) like ExpandedCardSheet/BackStorySheet already do.",
+    "(Optional carryover from it3) HotFeed.jsx is now 926 lines (up from 792). Split ExpandedCardSheet + BackStorySheet + HotIconBtn into separate files per the >700 line guideline.",
+    "(Optional) handleRegen and onVoiceResult in HotCard both hand-roll fetch to /api/insights/hot/regenerate-single — extract a shared helper (e.g., regenerateHotSingle) in /app/frontend/src/lib/api.js and reuse."
+  ],
+  "critical_code_review_comments": [
+    "HotFeed.jsx has grown to 926 lines with 5 in-file components (HotFeed, HotHeader, HotCard, HotIconBtn, ExpandedCardSheet, BackStorySheet). Refactor into /app/frontend/src/components/hot/ subfolder.",
+    "VoiceRecorder is not portaled to document.body while its two siblings (ExpandedCardSheet, BackStorySheet) are — this asymmetry is the root cause of the mic-close click leak reported above.",
+    "handleRegen catches only network errors but not non-200 JSON responses cleanly — e.g., if backend returns 500, res.json() may still resolve; the current shape check `if (data && data.card)` is fine but the else branch shows toast, leaving voiceSteering=false only via the always-run setter. Consider explicit `if (!res.ok) throw` for clarity.",
+    "gpt-5.4-mini is used in /api/insights/hot/regenerate-single — verify with product owner this is intentional vs the standard gpt-5-mini used elsewhere (potential typo)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration4_regen_single.py"],
+  "success_rate": {"backend": "100%", "frontend": "~95% (1 minor UX leak)"},
+  "seed_data_creation": "None. Test hits regenerate-single (no DB writes) and hot/stream (read-only) only.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The mic-close → expanded-sheet leak was reproduced deterministically: click hot-mic-btn-0, then click voice-close, then within 260ms the hot-expanded-0 portal appears over the card. To dblclick the card cleanly in a Playwright script, do it FIRST before any single tap — the card's onClick timer intercepts subsequent double-clicks by making the ExpandedCardSheet cover the card. The new Tavily key is live and /api/insights/hot/stream returns cards within ~3s. Backend uses gpt-5.4-mini for regenerate-single; typical latency 1-2s.",
+  "test_credentials": "none",
+  "rca of the issue": "Root cause of the click-leak: VoiceRecorder returns a <motion.div className='fixed inset-0 z-50 ...'> WITHOUT wrapping in ReactDOM.createPortal, and its close/stop buttons have plain onClick handlers with no stopPropagation. Because the component is a JSX descendant of the <article data-testid=hot-card-*>, DOM click bubbling reaches article.onClick=handleCardClick which schedules a 260ms setTimeout to setShowFull(true). Mitigation: portal the overlay to document.body (mirrors ExpandedCardSheet/BackStorySheet) OR add e.stopPropagation to the outer motion.div's onClick."
+}
